@@ -26,31 +26,31 @@
 #define LED_SWITCH	_IOW(LED_MAGIC, 1, uint8_t)
 #define LED_ROTATE	_IOW(LED_MAGIC, MAX_NR, size_t)
 
-MODULE_AUTHOR("Xiao Maolv");
-MODULE_DESCRIPTION("LED drv for Ex3");
+MODULE_AUTHOR("Chen Hang");
+MODULE_DESCRIPTION("LED drv 2/4 for Ex3");
 MODULE_LICENSE("GPL v2");
-MODULE_VERSION("1.0");
+MODULE_VERSION("2.0");
 
 struct FS4412_LED_struct
 {
 	dev_t cd;
 	spinlock_t slock;
 	atomic_t count;
-	uint8_t dat[2];//4
-	uint8_t state[2];//4
+	uint8_t dat[2];
+	uint8_t state[2];
 	size_t rt_cmd[2];
 	struct cdev Ldev;
 	struct task_struct *rt_thrd;
 	struct class *cls;
 	struct device *dev;
-	GPIO_TypeDef *reg[2];//4
+	GPIO_TypeDef *reg[2];
 };
 
 struct FS4412_LED_reg_ops_struct
 {
-	uint8_t GPIO_DAT_POS[2];//
-	uint8_t GPIO_DAT_MSK[2];//
-	uint8_t GPIO_DAT_CLR[2];//
+	uint8_t GPIO_DAT_POS[2];
+	uint8_t GPIO_DAT_MSK[2];
+	uint8_t GPIO_DAT_CLR[2];
 };
 
 static int __init FS4412_LED_drv_init(void);
@@ -74,9 +74,9 @@ static int FS4412_LED_rotate(void);
 static struct FS4412_LED_struct FS4412_LED;
 static struct FS4412_LED_reg_ops_struct FS4412_LED_reg_ops =
 {
-		{GPF3_DAT_4_POS, GPF3_DAT_5_POS/*, GPX2_DAT_7_POS, GPX1_DAT_0_POS*/},
-		{GPF3_DAT_4_MSK, GPF3_DAT_5_MSK/*, GPX2_DAT_7_MSK, GPX1_DAT_0_MSK*/},
-		{GPF3_DAT_4_CLR, GPF3_DAT_5_CLR/*, GPX2_DAT_7_CLR, GPX1_DAT_0_CLR*/}
+		{GPF3_DAT_4_POS, GPF3_DAT_5_POS},
+		{GPF3_DAT_4_MSK, GPF3_DAT_5_MSK},
+		{GPF3_DAT_4_CLR, GPF3_DAT_5_CLR}
 };
 
 static struct file_operations fops =
@@ -92,7 +92,7 @@ static int __init FS4412_LED_drv_init(void)
 	int err;
 
 	/* allocate device numbers to LED */
-	err = alloc_chrdev_region(&FS4412_LED.cd, LED_BASEMINOR, LED_COUNT, DEV_NAME);
+	err = alloc_chrdev_region(&FS4412_LED.cd, LED_BASEMINOR, LED_COUNT, DEV_NAME);//动态分配设备号
 	if (err < 0)
 	{
 		printk(KERN_ERR "fail to allocate LED device number\n");
@@ -100,11 +100,11 @@ static int __init FS4412_LED_drv_init(void)
 	}
 
 	/* initialize cdev structure of LED */
-	cdev_init(&FS4412_LED.Ldev, &fops);
+	cdev_init(&FS4412_LED.Ldev, &fops);//初始化cdev结构
 	FS4412_LED.Ldev.owner = THIS_MODULE;
 
 	/* add LED device to the system */
-	err = cdev_add(&FS4412_LED.Ldev, FS4412_LED.cd, LED_COUNT);
+	err = cdev_add(&FS4412_LED.Ldev, FS4412_LED.cd, LED_COUNT);//注册
 	if (err < 0)
 	{
 		printk(KERN_ERR "fail to add LED to system\n");
@@ -112,7 +112,7 @@ static int __init FS4412_LED_drv_init(void)
 	}
 
 	/* map GPIO */
-	err = FS4412_LED_ioremap();
+	err = FS4412_LED_ioremap();//将通用输入输出引脚的IO地址空间映射到内核的虚拟地址空间，便于访问
 	if (err < 0)
 	{
 		printk(KERN_ERR "fail to remap LED\n");
@@ -120,13 +120,14 @@ static int __init FS4412_LED_drv_init(void)
 	}
 
 	/* create LED device */
-	FS4412_LED.cls = class_create(THIS_MODULE, DEV_NAME);
+	//加载模块时用户控件中的udev会自动响应device_create函数，在/sysfs下寻找对应的类从而创建设备节点
+	FS4412_LED.cls = class_create(THIS_MODULE, DEV_NAME);//创建类存放到sysfs
 	if (IS_ERR(FS4412_LED.cls))
 	{
 		printk(KERN_ERR "fail to create class");
-		return PTR_ERR(FS4412_LED.cls);
+		return PTR_ERR(FS4412_LED.cls);//错误码
 	}
-	FS4412_LED.dev = device_create(FS4412_LED.cls, NULL, FS4412_LED.cd, NULL, DEV_NAME);
+	FS4412_LED.dev = device_create(FS4412_LED.cls, NULL, FS4412_LED.cd, NULL, DEV_NAME);//创建设备节点
 	if (IS_ERR(FS4412_LED.dev))
 	{
 		printk(KERN_ERR "fail to create device");
@@ -164,17 +165,12 @@ static void __exit FS4412_LED_drv_exit(void)
  * @Param[in]:	None
  * @Return:	0 if success, otherwise -EIO
  **********************************************************************/
-static int FS4412_LED_ioremap(void)
+static int FS4412_LED_ioremap(void)//将与 LED 相关的 GPIO 寄存器的物理地址映射到虚拟地址空间
 {
 	FS4412_LED.reg[0] = FS4412_LED.reg[1] = ioremap(GPF3_BASE, 8);
 	if (!FS4412_LED.reg[0])
 		return -EIO;
-	/*FS4412_LED.reg[2] = ioremap(GPX2_BASE, 8);
-	if (!FS4412_LED.reg[2])
-		return -EIO;
-	FS4412_LED.reg[3] = ioremap(GPX1_BASE, 8);
-	if (!FS4412_LED.reg[3])
-		return -EIO;*/
+	
 	return 0;
 }
 
@@ -188,8 +184,6 @@ static void FS4412_LED_iounmap(void)
 {
 	iounmap(FS4412_LED.reg[0]);
 	
-	/*iounmap(FS4412_LED.reg[2]);
-	iounmap(FS4412_LED.reg[3]);*/
 }
 
 static int FS4412_LED_open(struct inode *inode, struct file *filp)
@@ -200,8 +194,8 @@ static int FS4412_LED_open(struct inode *inode, struct file *filp)
 		printk(KERN_ERR "LED busy\n");
 		return -EBUSY;
 	}
-	atomic_add(1, &FS4412_LED.count);
-	spin_lock_init(&FS4412_LED.slock);
+	atomic_add(1, &FS4412_LED.count);//保证不被打断
+	spin_lock_init(&FS4412_LED.slock);//保证只能同时被一个进程打开
 	FS4412_LED_init();
 	return 0;
 }
@@ -229,7 +223,7 @@ static long FS4412_LED_unlocked_ioctl(struct file *filp, unsigned int cmd, unsig
 	{
 	case LED_STATE:
 		FS4412_LED_state(ULOCK);
-		if (copy_to_user((void *) arg, FS4412_LED.state,
+		if (copy_to_user((void *) arg, FS4412_LED.state, //将内核空间的内容复制到用户空间
 				sizeof(FS4412_LED.state)))
 		{
 			printk(KERN_ERR "fail to get LED state\n");
@@ -237,7 +231,7 @@ static long FS4412_LED_unlocked_ioctl(struct file *filp, unsigned int cmd, unsig
 		}
 		break;
 	case LED_SWITCH:
-		if (!arg || arg > 4)//!arg || arg > 4
+		if (!arg || arg > 4)
 			goto inval_err;
 		FS4412_LED_switch(arg);
 		break;
@@ -266,16 +260,12 @@ inval_err:
  * @Param[in]:	None
  * @Return:	None
  **********************************************************************/
-static void FS4412_LED_init(void)
+static void FS4412_LED_init(void)//初始化 GPIO 控制 LED
 {
-	writel(
-			readl(&FS4412_LED.reg[0]->CON) & GPF3_CON_4_CLR & GPF3_CON_5_CLR
-					| GPF3_CON_4_OUT | GPF3_CON_5_OUT, &FS4412_LED.reg[0]->CON);
-	/*writel(readl(&FS4412_LED.reg[2]->CON) & GPX2_CON_7_CLR | GPX2_CON_7_OUT,
-			&FS4412_LED.reg[2]->CON);
-	writel(readl(&FS4412_LED.reg[3]->CON) & GPX1_CON_0_CLR | GPX1_CON_0_OUT,
-			&FS4412_LED.reg[3]->CON);*/
-	FS4412_LED_deinit();
+	writel( //往内存映射的I/O空间写32位数据
+			readl(&FS4412_LED.reg[0]->CON) & GPF3_CON_4_CLR & GPF3_CON_5_CLR   //readl从内存映射的I/O空间读取32位数据
+					| GPF3_CON_4_OUT | GPF3_CON_5_OUT, &FS4412_LED.reg[0]->CON); 
+	FS4412_LED_deinit();//关灯
 }
 
 /**********************************************************************
@@ -291,10 +281,6 @@ static void FS4412_LED_deinit(void)
 			FS4412_LED.dat[0] & FS4412_LED_reg_ops.GPIO_DAT_CLR[0]
 					& FS4412_LED_reg_ops.GPIO_DAT_CLR[1],
 			&FS4412_LED.reg[0]->DAT);
-	/*writel(FS4412_LED.dat[2] & FS4412_LED_reg_ops.GPIO_DAT_CLR[2],
-			&FS4412_LED.reg[2]->DAT);
-	writel(FS4412_LED.dat[3] & FS4412_LED_reg_ops.GPIO_DAT_CLR[3],
-			&FS4412_LED.reg[3]->DAT);*/
 	spin_unlock(&FS4412_LED.slock);
 }
 
@@ -304,18 +290,18 @@ static void FS4412_LED_deinit(void)
  * @Param[in]:	(uint8_t)lock_flg: return with spin_lock if not 0
  * @Return:	None
  **********************************************************************/
-static void FS4412_LED_state(const uint8_t lock_flg)
+static void FS4412_LED_state(const uint8_t lock_flg) //读取 GPIO 数据寄存器以获取 LED 状态
 {
 	uint8_t i;
 	spin_lock(&FS4412_LED.slock);
-	for (i = 0; i < 2; i++)//i<4
+	for (i = 0; i < 2; i++)
 	{
 		FS4412_LED.dat[i] = readl(&FS4412_LED.reg[i]->DAT);
 		FS4412_LED.state[i] = FS4412_LED.dat[i]
 								& FS4412_LED_reg_ops.GPIO_DAT_MSK[i];
-		FS4412_LED.state[i] >>= FS4412_LED_reg_ops.GPIO_DAT_POS[i];
+		FS4412_LED.state[i] >>= FS4412_LED_reg_ops.GPIO_DAT_POS[i]; //右移后赋值
 	}
-	if (lock_flg)
+	if (lock_flg)//lock锁，ulock解锁
 		spin_unlock(&FS4412_LED.slock);
 }
 
@@ -373,127 +359,31 @@ static int FS4412_LED_rtctl(void)
  **********************************************************************/
 static int FS4412_LED_rotate(void)
 {
-	/*uint8_t i, dir, pos, wval, n;
-	do
-	{
-		dir = FS4412_LED.rt_cmd[0] == 1 || FS4412_LED.rt_cmd[0] == 3 ? 0 : 1;
-		n = dir ? 3 : 4;
-		FS4412_LED_state(LOCK);
-		for (i = 0; i < n; i++)
-		{
-			pos = (dir ? i + 1 : i - 1) & 3;
-			wval = FS4412_LED.state[i] ?
-					FS4412_LED.dat[pos] | FS4412_LED_reg_ops.GPIO_DAT_MSK[pos] :
-					FS4412_LED.dat[pos] & FS4412_LED_reg_ops.GPIO_DAT_CLR[pos];
-			if (!pos)
-				wval = FS4412_LED.state[++i] ?
-						wval | FS4412_LED_reg_ops.GPIO_DAT_MSK[1] :
-						wval & FS4412_LED_reg_ops.GPIO_DAT_CLR[1];
-			if (pos == 1)
-				wval = FS4412_LED.state[3] ?
-						wval | FS4412_LED_reg_ops.GPIO_DAT_MSK[0] :
-						wval & FS4412_LED_reg_ops.GPIO_DAT_CLR[0];
-			writel(wval, &FS4412_LED.reg[pos]->DAT);
-		}
-		spin_unlock(&FS4412_LED.slock);
-		if (FS4412_LED.rt_cmd[0] > 2)
-			mdelay(FS4412_LED.rt_cmd[1]);
-		
-	} while (FS4412_LED.rt_cmd[0] > 2 && !kthread_should_stop());
-	return 0;*/
-	/*uint8_t i, dir, wval, n;
-	uint8_t pos[2];
-	do
-	{
-		dir = FS4412_LED.rt_cmd[0] == 1 || FS4412_LED.rt_cmd[0] == 3 ? 0 : 1;
-		n =  2;
-		if(dir)
-		{pos[0]=0;pos[1]=1;}
-		else
-		{pos[0]=1;pos[1]=0;}
-		FS4412_LED_state(LOCK);
-		for (i = 0; i < n; i++)
-		{
-			
-			wval = FS4412_LED.state[i] ?
-					FS4412_LED.dat[pos[i]] | FS4412_LED_reg_ops.GPIO_DAT_MSK[pos[i]] :
-					FS4412_LED.dat[pos[i]] & FS4412_LED_reg_ops.GPIO_DAT_CLR[pos[i]];
-			if (!pos[i])
-				wval = FS4412_LED.state[i] ?
-						wval | FS4412_LED_reg_ops.GPIO_DAT_MSK[1] :
-						wval & FS4412_LED_reg_ops.GPIO_DAT_CLR[1];
-			if (pos[i] == 1)
-				wval = FS4412_LED.state[pos[i]] ?
-						wval | FS4412_LED_reg_ops.GPIO_DAT_MSK[0] :
-						wval & FS4412_LED_reg_ops.GPIO_DAT_CLR[0];
-			writel(wval, &FS4412_LED.reg[pos[i]]->DAT);
-		}
-		spin_unlock(&FS4412_LED.slock);
-		if (FS4412_LED.rt_cmd[0] > 2)
-			mdelay(FS4412_LED.rt_cmd[1]);
-	} while (FS4412_LED.rt_cmd[0] > 2 && !kthread_should_stop());
-	return 0;*/
-	
-	/*uint8_t i, dir, wval,pos;
-	do{
-		FS4412_LED_state(LOCK);
-		for(i=0;i<2;i++)
-		{
-			pos=(i?0:1);
-			wval=FS4412_LED.state[i] ?
-					FS4412_LED.dat[pos] | FS4412_LED_reg_ops.GPIO_DAT_MSK[pos] :
-					FS4412_LED.dat[pos] & FS4412_LED_reg_ops.GPIO_DAT_CLR[pos];
-			
-			writel(wval, &FS4412_LED.reg[pos]->DAT);
-		}
-		spin_unlock(&FS4412_LED.slock);
-		if (FS4412_LED.rt_cmd[0] > 2)
-			mdelay(FS4412_LED.rt_cmd[1]);
-	} while (FS4412_LED.rt_cmd[0] > 1 && !kthread_should_stop());
-	return 0;*/
 	
 	uint8_t dat;
-	if(FS4412_LED.rt_cmd[0] <3)
-	{
+	do{
 		int i;
 		for(i=0;i<2;i++)
 		{
 			spin_lock(&FS4412_LED.slock);
 			dat = readl(&FS4412_LED.reg[i]->DAT);
 			writel(
-			dat & FS4412_LED_reg_ops.GPIO_DAT_MSK[i] ?
+				dat & FS4412_LED_reg_ops.GPIO_DAT_MSK[i] ?
 					dat & FS4412_LED_reg_ops.GPIO_DAT_CLR[i] :
 					dat | FS4412_LED_reg_ops.GPIO_DAT_MSK[i],
 			&FS4412_LED.reg[i]->DAT);
 			spin_unlock(&FS4412_LED.slock);
 			
 		}
-	}
-	else
-	{
-		do{
-			int i;
-		for(i=0;i<2;i++)
-		{
-			spin_lock(&FS4412_LED.slock);
-			dat = readl(&FS4412_LED.reg[i]->DAT);
-			writel(
-			dat & FS4412_LED_reg_ops.GPIO_DAT_MSK[i] ?
-					dat & FS4412_LED_reg_ops.GPIO_DAT_CLR[i] :
-					dat | FS4412_LED_reg_ops.GPIO_DAT_MSK[i],
-			&FS4412_LED.reg[i]->DAT);
-			spin_unlock(&FS4412_LED.slock);
-			
-		}
-		mdelay(FS4412_LED.rt_cmd[1]);
-		} while (FS4412_LED.rt_cmd[0] > 1 && !kthread_should_stop());
-		
-	}
+		if(FS4412_LED.rt_cmd[0] > 2) 
+			mdelay(FS4412_LED.rt_cmd[1]);
+	} while (FS4412_LED.rt_cmd[0] > 2 && !kthread_should_stop());
 	
 	return 0;
 	
 	
 }
 
-module_init(FS4412_LED_drv_init);
-module_exit(FS4412_LED_drv_exit);
+module_init(FS4412_LED_drv_init);//加载
+module_exit(FS4412_LED_drv_exit);//卸载
+
