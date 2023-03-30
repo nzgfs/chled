@@ -14,7 +14,6 @@
 
 /* path of devices */
 #define LED ("/dev/FS4412_LED")
-#define SEGMENT_DISPLAY ("/dev/FS4412_segdis")
 
 #define LED_MAGIC 'L'
 #define LED_STATE	_IOR(LED_MAGIC, 0, uint8_t)
@@ -51,56 +50,13 @@
    * 					file descriptor of LED device,
    * 				(size_t)rt_args[2]:
    *					rt_args[0]:	0: stop rotating
-   *								1: move anticlockwise
-   *								2: move clockwise
+   *								1: move
    *								3: rotate anticlockwise
-   *								4: rotate clockwise
    *					rt_args[1]: rotation delay (ms)
    * @Return:	other than -1 upon successful completion
    **********************************************************************/
 #define FS4412_LED_rotate(fd, rt_args) 	ioctl(fd, LED_ROTATE, rt_args)
 
 
-
-   /*************************** NOTICE ***********************************
-	* 		there should be an interval of more than 2 ms
-	* 		between segment display control functions calls
-	*********************************************************************/
-
-	/**********************************************************************
-	 * @Function:	FS4412_segdis_clr
-	 * @Description:	clear segment displays
-	 * @Param[in]:	(int)fd:
-	 * 					file descriptor of segment displays device,
-	 * 				(uint8_t)cmd[2]:
-	 *					cmd[0]: must be 0
-	 *					cmd[1]:	digit postion(1-8), if 0 clear all
-	 * @Return:	other than -1 upon successful completion
-	 **********************************************************************/
-#define FS4412_segdis_clr(fd, cmd)		write(fd, cmd, 2)
-
-	 /**********************************************************************
-	  * @Function:	FS4412_segdis_w_dig
-	  * @Description:	display 1 digit
-	  * @Param[in]:	(int)fd_LED:
-	  * 					file descriptor of segment displays device,
-	  * 				(uint8_t)dig[2]:
-	  *					dig[0]: digit position(1-8)
-	  *					dig[1]: (char)digit to be displayed
-	  * @Return:	other than -1 upon successful completion
-	  **********************************************************************/
-#define FS4412_segdis_w_dig(fd, dig) 	write(fd, dig, 2)
-
-	  /**********************************************************************
-	   * @Function:	FS4412_segdis_w_num
-	   * @Description:	display 8 number
-	   * @Param[in]:	(int)fd:
-	   * 					file descriptor of segment displays device,
-	   * 				(uint8_t)num[9]:
-	   *					num[0]: must be 9
-	   *					num[1-8]: (char)numbers to be displayed
-	   * @Return:	other than -1 upon successful completion
-	   **********************************************************************/
-#define FS4412_segdis_w_num(fd, num) 	write(fd, num, 9)
 
 #endif
